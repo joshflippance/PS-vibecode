@@ -4,25 +4,30 @@
 
 ## Scenario
 
-_Which of the four scenarios (or your own, instructor-approved) did you build?_
+_Tick the scenario you built in Lab 1 (the same one you selected in the lab guide), or name your own._
 
-_____
+- [ ] Scenario 01 · The Retention Engine
+- [x] Scenario 02 · The Internal Tool Nobody Uses
+- [ ] Scenario 03 · The Marketplace Trust Problem
+- [ ] Scenario 04 · The Dashboard Nobody Reads
+- [ ] My own (instructor-approved): _____
 
 ## Launch path
 
-- [ ] Copy & Customize (start from a scenario starter prompt)
-- [ ] First Screen Method (build only the very first screen the user sees)
+- [x] Copy & Customize (started from a scenario starter prompt)
+- [ ] First Screen Method (built only the very first screen the user sees)
 
 ## The build
 
-- **What I built:** _____
-- **Tool used:** Lovable / v0 / Cursor / Bolt / Replit
-- **Shareable link:** _____
+- **What I built:** A lightweight daily CRM dashboard where sales reps see today's follow-ups, search contacts, and log calls or notes in one click.
+- **Tool used:** Lovable
+- **Shareable link:** https://rep-ease-crm.lovable.app/
 
 ## Show & Swap read
 
-_What a partner understood from your build with no verbal setup. Their reaction is your first piece of product evidence._
+_What a partner understood from your build with no verbal setup, their reaction is your first piece of product evidence._
 
-- **What they thought it did:** _____
-- **What surprised them:** _____
-- **The gap between what I intended and what they read:** _____
+- **What they understood immediately:** Helping sales people to do customer follows up for today, get quick context about they spoke about
+- **What confused them:** Not really sure how the list is prioritized, things in red say overdue, not sure which to do first, suggested if could move things around
+- **The assumption they thought you were testing:** If sales personnel could use the CRM more,
+- **The gap between what you intended and what they read:** They got the idea,
