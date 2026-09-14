@@ -45,11 +45,26 @@ Don't change anything else in the project or touch the underlying logic.
 
 ## Reusable techniques learned
 
-- _____
-- _____
+- 1) The Power of Intentional Sequencing: Breaking a complex build into distinct phases (structure $\rightarrow$ logic/error-handling $\rightarrow$ visual polish) prevents the AI from getting overwhelmed, resulting in much cleaner, more maintainable code than asking for everything at once
+- 2) Context Preservation Across Steps: You learn how early constraints and design tokens (like your Linear/Vercel aesthetic, font pairings, and semantic CSS classes) cascade and must be explicitly reinforced so the AI doesn't drift into generic defaults.
+- 3) Edge-Case Resilience: Enforcing explicit rules for loading skeletons, empty states, and error triggers forces you to think about software states that are commonly glossed over in rapid prototyping.
+- 4) Component-Driven Thinking: Separating structural layout from micro-refinements (like typography scales and button states) teaches you how to systematically audit UI gaps the way a senior frontend engineer would.
 
 ## What broke (and the fix)
 
 _Where a single mega-prompt failed and chaining fixed it._
 
-_____
+1. What Broke: "The Monolithic Prompt Trap" (Structural Collapse)
+What broke: When you ask an AI to build a brand new feature (like a new screen + state management + styling) all in one massive prompt, it usually fails. It jumbles the component tree, invents random CSS styles instead of using your design tokens, or forgets to hook up the router.
+
+The Fix (Step 1): Strict sequencing. Forcing the AI to build Screen A first as an "anchor," then Screen B, and finally writing the navigation logic explicitly prevents the components from being built out of order or disconnected.
+
+2. What Broke: "The Happy-Path Illusion" (Unhandled States)
+What broke: Developers and AI models naturally code for the "happy path" (when data loads instantly and perfectly). In production or user testing, this leads to jarring layout shifts, infinite blank screens when an API/fetch fails, or confusing blank spaces when there's no data.
+
+The Fix (Step 2): Explicit logic constraints. Forcing the AI to handle loading skeletons, a specific empty-state phrase ("To prevent unnecessary data spreadsheets"), and a clear error message ensures the app behaves robustly under real-world conditions.
+
+3. What Broke: "Design Drift" (Inconsistent UI Polish)
+What broke: As new screens are added, AI models tend to revert to generic, default styles (e.g., standard blue buttons, harsh borders, or default system fonts), breaking the cohesive Linear/Vercel aesthetic established in your main dashboard.
+
+The Fix (Step 3): A structured visual audit. By making the AI explicitly list the 3 biggest typography and spacing gaps before changing anything, and tying adjustments strictly to existing design tokens (like --cta), it preserves the look and feel of the rest of the application without messing up the underlying React logic.
