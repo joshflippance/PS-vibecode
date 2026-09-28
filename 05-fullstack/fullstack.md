@@ -2,7 +2,7 @@
 
 Project: **The Dashboard Nobody Reads** (hypothesis prototype)
 Stack: TanStack Start (React 19) front end and server functions · Lovable Cloud database with row-level security · email/password auth
-Updated: 28 Sep 2026
+Updated: 28 Sep 2026 (v2: adds request timeouts, inline Retry states, sign-up double-submit fix)
 
 ---
 
@@ -76,6 +76,7 @@ Updated: 28 Sep 2026
 | Insights/quotes tables empty | Screen would render nothing | Falls back to the bundled copy |
 | Page emptied after an edit elsewhere | Blank page N | Automatically steps back to the last real page |
 | New account | No data visible | Clean empty state (demo rows are ownerless on purpose) |
+| Sign-up / sign-in form, empty fields | Form allowed empty submission attempts or lacked clear initial state handling | Required field validation: `required` on email and password, `type=email`, `minLength=6` on the password, so the browser blocks submission until fields are valid |
 
 ### 3b. Bad / malicious input
 
@@ -90,6 +91,7 @@ Updated: 28 Sep 2026
 | Account probing via "Forgot password" | Would reveal whether an email exists | Same message either way: "If an account exists…" |
 | Weak or breached password | Allowed | Minimum 8 characters on reset, and breached passwords are rejected |
 | Reading invite emails anonymously | Public aggregate function exposed | Execute revoked; no public access to the table |
+| Rapid spam-clicking "Sign up" / "Sign in" | Multiple overlapping requests fired, ending in a "Failed to fetch" error | Synchronous in-flight guard (`useRef`) ignores every click after the first; the button is disabled with a spinner and "Creating account…" / "Signing in…", and re-enables only when the request resolves or fails |
 | Event payload tampering | — | Zod-validated `kind`, `atSeconds ≥ 0`, uuid `sessionId` (**ownership still unchecked**, see gaps) |
 
 ### 3c. Failure / offline
@@ -107,6 +109,11 @@ Updated: 28 Sep 2026
 | Expired or reused reset link | Would silently fail | "Link expired" screen with a way back to sign in |
 | Password-reset rate limit (429) | Raw error | "Too many attempts. Please wait a few minutes and try again." |
 | Sign-out with requests in flight | 401 storm, stale cache | Cancel queries, clear the cache, sign out, then navigate with history replace |
+| Stalled request (no response) | Skeletons pulsed indefinitely; UI could appear frozen | Every invite read and write is wrapped in a 10 s timeout (`withTimeout`) that rejects into the inline error state |
+| Failed query retry storm | Default 3 retries with backoff (~7 s of skeletons) | One retry after 800 ms, then the inline error with **Retry**; mutations never auto-retry |
+| Action page fails to load (`/action/:id`) | Route could hang or crash | Route error view: "Couldn't load this action. Check your connection and try again." with **Retry** (re-runs the loader) |
+| Auth check fails while offline | Invite section could stay on skeletons forever | Network failure is treated as signed out; the section always leaves the loading state |
+| Sign-up / sign-in request throws (network drop) | Raw "Failed to fetch" or unhandled rejection | Caught; shows "Couldn't reach the server. Check your connection and try again." and the button re-enables |
 | Participant goes offline mid-session | Events lost (fire-and-forget) | **Not yet handled.** See backlog |
 
 ---
@@ -124,11 +131,24 @@ Updated: 28 Sep 2026
 | Inline error and Retry | — | **Not exercised** (no failure injected) |
 | Simultaneous edits | — | **Not exercised** |
 | Password reset email delivery | — | **Not exercised** |
+| Action page offline, then Retry | Playwright (blocked network) | Pass: error view with Retry shown; Retry loaded the page once reconnected |
+| Invite section timeouts / auth-check offline | — | **Not exercised** in a browser |
+| Sign-up double-submit guard | Code review | Implemented; **not yet exercised** in a browser |
 | Typecheck | `tsgo --noEmit` | Clean |
 
 ---
 
-## 5. Stress tests to run next
+## 5. Stress test results
+
+_What we threw at it, and what held or broke._
+
+| # | Test performed | Result | Engineering status |
+|---|---|---|---|
+| 1 | Rapid-fire spam clicking of the "Sign up" button to simulate high-frequency input | **Broke (before fix):** the UI processed overlapping requests at once, producing unhandled state and a network failure ("Failed to fetch") | Originally documented as a known gap needing submission throttling / disable-on-click. **Now fixed** in code (in-flight guard, disabled button, loading state, friendly error). Re-run in a browser to confirm |
+| 2 | Blocked network, then opened an action page | **Held:** inline error with Retry; recovered after reconnecting | Done |
+| 3 | 11 invites created, paged and edited | **Held:** pagination and status edits correct | Done (test rows deleted) |
+
+## 6. Stress tests to run next
 
 1. **Ownership:** user A calls `updateInviteStatus` with user B's invite id. Expect "Invite not found."
 2. **No token:** call the invite functions without a bearer token. Expect 401.
@@ -137,11 +157,12 @@ Updated: 28 Sep 2026
 5. **Pagination under churn:** delete rows while on the last page. The UI steps back without a blank page.
 6. **Failure injection:** block the database host. Expect the Retry states to appear and recover once the host is unblocked.
 7. **Load:** 200 concurrent participants with 10 events each. Expect p95 write under 300 ms and no lost events.
-8. **Auth abuse:** reset-password spam triggers the rate-limit message, and a breached password is rejected.
+8. **Sign-up spam (re-test):** click Sign up 20 times in 1 s. Expect exactly one request and no "Failed to fetch".
+9. **Auth abuse:** reset-password spam triggers the rate-limit message, and a breached password is rejected.
 
 ---
 
-## 6. Backlog (next hardening)
+## 7. Backlog (next hardening)
 
 - Issue `session_token` to the browser and move session writes to RLS (closes the forgery gap).
 - Queue events offline and flush via `sendBeacon` when the tab closes.
@@ -149,4 +170,24 @@ Updated: 28 Sep 2026
 - Add a `user_roles` table and `has_role()`, plus a researcher-only results page (Keep/Cut per insight across sessions).
 - Move the bounce threshold and keep-rate into an `experiment_config` table.
 - Replace the simulated history load with a real query of `session_events`.
+- Browser-verify the sign-up double-submit fix and invite-section timeout states.
 - Optional: branded auth emails (needs a custom domain) and real invite email delivery.
+
+
+---
+
+## Appendix: Edge cases hardened (lab summary)
+
+| Case | Before | After |
+|---|---|---|
+| Empty / first-run state | Form allowed empty submission attempts or lacked clear initial state handling. | Implemented required field validation or disabled submission until mandatory fields contain valid inputs |
+| Bad / malicious input | Rapid spam-clicking the submit button triggered multiple duplicate requests or network errors (e.g., "Failed to fetch"). | Added submission debouncing, disabled the button immediately upon first click, or implemented loading state protection to prevent duplicate rapid-fire payloads. |
+| Failure / offline | Network or server timeouts during repeated requests caused unhandled promise rejections or generic connection failures. | Added explicit error boundary handling and user-facing fallback messaging (such as clean error states instead of raw crashes). |
+
+## Appendix: Stress test results (lab summary)
+
+_What you threw at it, and what held / broke._
+
+- **Test performed:** Rapid-fire spam testing by clicking the "Sign up" button multiple times in succession to simulate high-frequency user input.
+- **Result:** The UI attempted to process overlapping requests simultaneously, leading to unhandled state payloads and a network failure state ("Failed to fetch").
+- **Engineering status:** Documented as a known gap requiring submission throttling/button-disable states on click to prevent duplicate execution payloads. *Update: the fix has since been implemented (see section 3b); browser re-test pending.*
